@@ -13,6 +13,70 @@ st.set_page_config(
     initial_sidebar_state="expanded",   # FIX: always start expanded
 )
 
+# ── Sidebar auto-expand + floating toggle button ──────────────────────────────
+st.markdown("""
+<button id="sidebar-open-btn" title="Open sidebar" onclick="openSidebar()">☰</button>
+<script>
+(function() {
+    // Poll until the sidebar collapse button exists, then watch its state
+    function getSidebarCollapseBtn() {
+        // Streamlit renders a button inside the sidebar header to collapse it
+        return document.querySelector('[data-testid="stSidebarCollapseButton"] button') ||
+               document.querySelector('button[kind="header"]') ||
+               document.querySelector('[data-testid="collapsedControl"] button');
+    }
+
+    function getSidebarEl() {
+        return document.querySelector('[data-testid="stSidebar"]');
+    }
+
+    function isSidebarCollapsed() {
+        const sb = getSidebarEl();
+        if (!sb) return true;
+        return sb.getAttribute('aria-expanded') === 'false' ||
+               sb.style.width === '0px' ||
+               sb.classList.contains('st-emotion-cache-hidden') ||
+               getComputedStyle(sb).transform.includes('matrix') && getComputedStyle(sb).transform !== 'none' && getComputedStyle(sb).transform.includes('-');
+    }
+
+    function updateFloatBtn() {
+        const btn = document.getElementById('sidebar-open-btn');
+        if (!btn) return;
+        // Show the float button only when sidebar is collapsed
+        const collapsed = isSidebarCollapsed();
+        btn.style.display = collapsed ? 'flex' : 'none';
+    }
+
+    window.openSidebar = function() {
+        // Find and click Streamlit's own expand control
+        const ctrl = document.querySelector('[data-testid="collapsedControl"] button') ||
+                     document.querySelector('[data-testid="stSidebarCollapseButton"] button');
+        if (ctrl) ctrl.click();
+        setTimeout(updateFloatBtn, 300);
+    };
+
+    function init() {
+        updateFloatBtn();
+        // Watch for sidebar open/close via a MutationObserver on the sidebar
+        const sb = getSidebarEl();
+        if (sb) {
+            new MutationObserver(updateFloatBtn).observe(sb, {
+                attributes: true, attributeFilter: ['aria-expanded', 'style', 'class']
+            });
+        }
+        // Also poll every 800ms as a fallback
+        setInterval(updateFloatBtn, 800);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() { setTimeout(init, 600); });
+    } else {
+        setTimeout(init, 600);
+    }
+})();
+</script>
+""", unsafe_allow_html=True)
+
 # ── Session State Init (must be BEFORE any widget) ────────────────────────────
 def init_state():
     defaults = {
@@ -486,6 +550,31 @@ textarea:focus, input:focus {{ box-shadow: none !important; }}
 
 /* ── Hide Streamlit chrome ── */
 #MainMenu, footer, header {{ visibility: hidden; }}
+
+/* ── Floating sidebar open button (shows when sidebar is collapsed) ── */
+#sidebar-open-btn {{
+    position: fixed;
+    top: 14px;
+    left: 14px;
+    z-index: 99999;
+    background: var(--accent);
+    color: #fff !important;
+    border: none;
+    border-radius: 10px;
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+    cursor: pointer;
+    box-shadow: 0 2px 12px rgba(13,148,136,0.4);
+    display: none;              /* hidden by default; JS shows it */
+    align-items: center;
+    justify-content: center;
+    transition: background .2s, transform .15s;
+}}
+#sidebar-open-btn:hover {{
+    background: var(--accent-dk);
+    transform: scale(1.07);
+}}
 </style>
 """, unsafe_allow_html=True)
 
