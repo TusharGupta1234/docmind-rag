@@ -3,9 +3,7 @@ import os
 import tempfile
 from dotenv import load_dotenv
 
-import streamlit as st
-MISTRAL_API_KEY = st.secrets["MISTRAL_API_KEY"]
-os.environ["MISTRAL_API_KEY"] = MISTRAL_API_KEY
+load_dotenv()
 
 # ── Page Config ────────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -204,6 +202,25 @@ h1, h2, h3, h4 {
 }
 [data-testid="stSidebar"] [data-testid="stFileUploadDropzone"] * {
     color: var(--muted-inv) !important;
+}
+/* ── Fix white file uploader on mobile ── */
+[data-testid="stSidebar"] [data-testid="stFileUploader"] {
+    background: var(--sidebar-s2) !important;
+}
+[data-testid="stSidebar"] [data-testid="stFileUploader"] > div,
+[data-testid="stSidebar"] [data-testid="stFileUploader"] > div > div,
+[data-testid="stSidebar"] [data-testid="stFileUploader"] section,
+[data-testid="stSidebar"] [data-testid="stFileUploader"] section > div,
+[data-testid="stSidebar"] [data-testid="stFileUploader"] section > input + div {
+    background: var(--sidebar-s2) !important;
+    color: var(--muted-inv) !important;
+}
+/* Browse files button */
+[data-testid="stSidebar"] [data-testid="stFileUploader"] button {
+    background: var(--sidebar-s2) !important;
+    border: 1px solid var(--sidebar-bdr) !important;
+    color: var(--muted-inv) !important;
+    border-radius: 6px !important;
 }
 
 /* ── Sidebar button ── */
