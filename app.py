@@ -3,7 +3,9 @@ import os
 import tempfile
 from dotenv import load_dotenv
 
-load_dotenv()
+import streamlit as st
+MISTRAL_API_KEY = st.secrets["MISTRAL_API_KEY"]
+os.environ["MISTRAL_API_KEY"] = MISTRAL_API_KEY
 
 # ── Page Config ────────────────────────────────────────────────────────────────
 st.set_page_config(
