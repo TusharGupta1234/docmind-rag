@@ -5,6 +5,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# On Streamlit Cloud, secrets are in st.secrets — inject into env so all libraries pick it up
+try:
+    if "MISTRAL_API_KEY" in st.secrets:
+        os.environ["MISTRAL_API_KEY"] = st.secrets["MISTRAL_API_KEY"]
+except Exception:
+    pass  # Running locally, .env already loaded above
+
 # ── Page Config ────────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="DocMind · RAG Assistant",
