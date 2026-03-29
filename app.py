@@ -10,140 +10,23 @@ st.set_page_config(
     page_title="DocMind · RAG Assistant",
     page_icon="🧠",
     layout="wide",
-    initial_sidebar_state="expanded",   # FIX: always start expanded
+    initial_sidebar_state="expanded",
 )
 
-# ── Sidebar auto-expand + floating toggle button ──────────────────────────────
-st.markdown("""
-<button id="sidebar-open-btn" title="Open sidebar" onclick="openSidebar()">☰</button>
-<script>
-(function() {
-    // Poll until the sidebar collapse button exists, then watch its state
-    function getSidebarCollapseBtn() {
-        // Streamlit renders a button inside the sidebar header to collapse it
-        return document.querySelector('[data-testid="stSidebarCollapseButton"] button') ||
-               document.querySelector('button[kind="header"]') ||
-               document.querySelector('[data-testid="collapsedControl"] button');
-    }
-
-    function getSidebarEl() {
-        return document.querySelector('[data-testid="stSidebar"]');
-    }
-
-    function isSidebarCollapsed() {
-        const sb = getSidebarEl();
-        if (!sb) return true;
-        return sb.getAttribute('aria-expanded') === 'false' ||
-               sb.style.width === '0px' ||
-               sb.classList.contains('st-emotion-cache-hidden') ||
-               getComputedStyle(sb).transform.includes('matrix') && getComputedStyle(sb).transform !== 'none' && getComputedStyle(sb).transform.includes('-');
-    }
-
-    function updateFloatBtn() {
-        const btn = document.getElementById('sidebar-open-btn');
-        if (!btn) return;
-        // Show the float button only when sidebar is collapsed
-        const collapsed = isSidebarCollapsed();
-        btn.style.display = collapsed ? 'flex' : 'none';
-    }
-
-    window.openSidebar = function() {
-        // Find and click Streamlit's own expand control
-        const ctrl = document.querySelector('[data-testid="collapsedControl"] button') ||
-                     document.querySelector('[data-testid="stSidebarCollapseButton"] button');
-        if (ctrl) ctrl.click();
-        setTimeout(updateFloatBtn, 300);
-    };
-
-    function init() {
-        updateFloatBtn();
-        // Watch for sidebar open/close via a MutationObserver on the sidebar
-        const sb = getSidebarEl();
-        if (sb) {
-            new MutationObserver(updateFloatBtn).observe(sb, {
-                attributes: true, attributeFilter: ['aria-expanded', 'style', 'class']
-            });
-        }
-        // Also poll every 800ms as a fallback
-        setInterval(updateFloatBtn, 800);
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() { setTimeout(init, 600); });
-    } else {
-        setTimeout(init, 600);
-    }
-})();
-</script>
-""", unsafe_allow_html=True)
-
-# ── Session State Init (must be BEFORE any widget) ────────────────────────────
-def init_state():
-    defaults = {
-        "messages": [],
-        "vectorstore": None,
-        "doc_ready": False,
-        "doc_name": None,
-        "chunk_count": 0,
-        "theme": "dark",          # NEW: "dark" | "light"
-    }
-    for k, v in defaults.items():
-        if k not in st.session_state:
-            st.session_state[k] = v
-
-init_state()
-
-# ── Derive theme vars ──────────────────────────────────────────────────────────
-IS_DARK = st.session_state.theme == "dark"
-
-# Light-mode tokens
-LIGHT = {
-    "bg":          "#f5f3ef",
-    "surface":     "#ffffff",
-    "surface2":    "#f0ede8",
-    "sidebar_bg":  "#1c1917",
-    "sidebar_s2":  "#292524",
-    "sidebar_bdr": "#3a3532",
-    "border":      "#e2ddd7",
-    "text":        "#1c1917",
-    "text_inv":    "#f5f5f4",
-    "muted":       "#78716c",
-    "muted_inv":   "#a8a29e",
-    "chat_ta":     "#1c1917",      # textarea text in chat input
-}
-
-# Dark-mode tokens
-DARK = {
-    "bg":          "#0f0e0d",
-    "surface":     "#1a1917",
-    "surface2":    "#242220",
-    "sidebar_bg":  "#111110",
-    "sidebar_s2":  "#1c1b19",
-    "sidebar_bdr": "#2e2c29",
-    "border":      "#2e2c29",
-    "text":        "#f5f5f4",
-    "text_inv":    "#f5f5f4",
-    "muted":       "#a8a29e",
-    "muted_inv":   "#78716c",
-    "chat_ta":     "#f5f5f4",
-}
-
-T = DARK if IS_DARK else LIGHT
-
 # ── Custom CSS ─────────────────────────────────────────────────────────────────
-st.markdown(f"""
+st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
-/* ── Root Tokens ── */
-:root {{
-    --bg:          {T['bg']};
-    --surface:     {T['surface']};
-    --surface2:    {T['surface2']};
-    --sidebar-bg:  {T['sidebar_bg']};
-    --sidebar-s2:  {T['sidebar_s2']};
-    --sidebar-bdr: {T['sidebar_bdr']};
-    --border:      {T['border']};
+/* ── Root Tokens — Warm Light Theme ── */
+:root {
+    --bg:          #f5f3ef;
+    --surface:     #ffffff;
+    --surface2:    #f0ede8;
+    --sidebar-bg:  #1c1917;
+    --sidebar-s2:  #292524;
+    --sidebar-bdr: #3a3532;
+    --border:      #e2ddd7;
     --accent:      #0d9488;
     --accent-lt:   #ccfbf1;
     --accent-dk:   #0f766e;
@@ -152,80 +35,116 @@ st.markdown(f"""
     --success:     #16a34a;
     --success-lt:  #dcfce7;
     --danger:      #dc2626;
-    --text:        {T['text']};
-    --text-inv:    {T['text_inv']};
-    --muted:       {T['muted']};
-    --muted-inv:   {T['muted_inv']};
-    --chat-ta:     {T['chat_ta']};
+    --text:        #1c1917;
+    --text-inv:    #f5f5f4;
+    --muted:       #78716c;
+    --muted-inv:   #a8a29e;
     --radius:      10px;
-    --shadow:      0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.06);
-    --shadow-md:   0 4px 12px rgba(0,0,0,0.16), 0 2px 4px rgba(0,0,0,0.08);
-}}
+    --shadow:      0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    --shadow-md:   0 4px 12px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+}
 
 /* ── Global Reset ── */
-html, body,
-[data-testid="stAppViewContainer"],
-[data-testid="stMain"],
-[data-testid="stMainBlockContainer"] {{
+html, body, [data-testid="stAppViewContainer"] {
     background-color: var(--bg) !important;
     color: var(--text) !important;
     font-family: 'Plus Jakarta Sans', sans-serif !important;
-}}
+}
 
-/* ── FIX: Force sidebar to ALWAYS be visible and never collapse to 0 ── */
-[data-testid="stSidebar"] {{
+/* ── Main content block ── */
+[data-testid="stMain"] {
+    background-color: var(--bg) !important;
+}
+
+/* ── Sidebar — dark charcoal ── */
+[data-testid="stSidebar"] {
     background: var(--sidebar-bg) !important;
     border-right: 1px solid var(--sidebar-bdr) !important;
-    min-width: 260px !important;
-    display: block !important;
-    visibility: visible !important;
-}}
-/* Keep the collapse button from hiding the sidebar permanently */
-[data-testid="stSidebar"][aria-expanded="false"] {{
-    min-width: 0 !important;
-}}
-[data-testid="stSidebar"] * {{
+}
+[data-testid="stSidebar"] * {
     color: var(--text-inv) !important;
-}}
+}
+
+/* ── Sidebar collapse button (inside sidebar, top-right) ── */
+[data-testid="stSidebarCollapseButton"] {
+    background: transparent !important;
+}
+[data-testid="stSidebarCollapseButton"] button {
+    background: var(--accent) !important;
+    border: none !important;
+    color: #fff !important;
+    border-radius: 8px !important;
+}
+[data-testid="stSidebarCollapseButton"] button svg * {
+    stroke: #fff !important;
+    fill: #fff !important;
+}
+
+/* ── Collapsed control button (outside sidebar, shows when sidebar hidden) ── */
+[data-testid="stSidebarCollapsedControl"] {
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 9999 !important;
+}
+[data-testid="stSidebarCollapsedControl"] button {
+    background: var(--accent) !important;
+    border: none !important;
+    border-radius: 0 8px 8px 0 !important;
+    width: 32px !important;
+    height: 32px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+[data-testid="stSidebarCollapsedControl"] button svg {
+    color: #fff !important;
+    fill: #fff !important;
+    stroke: #fff !important;
+}
+[data-testid="stSidebarCollapsedControl"] button svg * {
+    stroke: #fff !important;
+    fill: #fff !important;
+}
 [data-testid="stSidebar"] .stSlider label,
 [data-testid="stSidebar"] .stSelectbox label,
 [data-testid="stSidebar"] .stNumberInput label,
-[data-testid="stSidebar"] .stFileUploader label {{
+[data-testid="stSidebar"] .stFileUploader label {
     color: var(--muted-inv) !important;
     font-size: 12px !important;
-}}
+}
 
 /* ── Headings ── */
-h1, h2, h3, h4 {{
+h1, h2, h3, h4 {
     font-family: 'Plus Jakarta Sans', sans-serif !important;
     letter-spacing: -0.025em !important;
-    color: var(--text) !important;
-}}
+}
 
 /* ── Sidebar brand ── */
-.sidebar-brand {{
+.sidebar-brand {
     display: flex;
     align-items: center;
     gap: 10px;
     padding: 4px 0 20px;
     border-bottom: 1px solid var(--sidebar-bdr);
     margin-bottom: 18px;
-}}
-.sidebar-brand .brand-icon {{
+}
+.sidebar-brand .brand-icon {
     width: 36px; height: 36px;
     background: var(--accent);
     border-radius: 9px;
     display: flex; align-items: center; justify-content: center;
     font-size: 18px; line-height: 1;
-}}
-.sidebar-brand .brand-name {{
+}
+.sidebar-brand .brand-name {
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-weight: 800;
     font-size: 18px;
     color: var(--text-inv) !important;
     letter-spacing: -0.03em;
-}}
-.sidebar-brand .brand-tag {{
+}
+.sidebar-brand .brand-tag {
     display: block;
     font-size: 10px;
     font-weight: 500;
@@ -233,10 +152,10 @@ h1, h2, h3, h4 {{
     letter-spacing: 0.06em;
     text-transform: uppercase;
     margin-top: 1px;
-}}
+}
 
 /* ── Section labels in sidebar ── */
-.section-label {{
+.section-label {
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
@@ -245,10 +164,10 @@ h1, h2, h3, h4 {{
     margin-bottom: 8px;
     margin-top: 22px;
     padding-left: 2px;
-}}
+}
 
 /* ── Status Badges ── */
-.status-badge {{
+.status-badge {
     display: inline-flex;
     align-items: center;
     gap: 7px;
@@ -259,92 +178,96 @@ h1, h2, h3, h4 {{
     margin-bottom: 10px;
     width: 100%;
     box-sizing: border-box;
-}}
-.status-badge.ready {{
+}
+.status-badge.ready {
     background: rgba(13,148,136,0.18);
     color: #5eead4 !important;
     border: 1px solid rgba(13,148,136,0.35);
-}}
-.status-badge.waiting {{
+}
+.status-badge.waiting {
     background: rgba(168,162,158,0.12);
     color: var(--muted-inv) !important;
     border: 1px solid rgba(168,162,158,0.2);
-}}
-.status-badge.processing {{
+}
+.status-badge.processing {
     background: rgba(217,119,6,0.15);
     color: #fbbf24 !important;
     border: 1px solid rgba(217,119,6,0.3);
-}}
-.status-badge .dot {{
+}
+.status-badge .dot {
     width: 7px; height: 7px;
     border-radius: 50%;
     background: currentColor;
     flex-shrink: 0;
-}}
+}
 
 /* ── Metric Cards ── */
-.metric-row {{
+.metric-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
     margin: 10px 0 4px;
-}}
-.metric-card {{
+}
+.metric-card {
     background: var(--sidebar-s2);
     border: 1px solid var(--sidebar-bdr);
     border-radius: 8px;
     padding: 10px 12px;
-}}
-.metric-card .mc-label {{
+}
+.metric-card .mc-label {
     font-size: 10px;
     color: var(--muted-inv) !important;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     font-weight: 600;
-}}
-.metric-card .mc-value {{
+}
+.metric-card .mc-value {
     font-family: 'JetBrains Mono', monospace;
     font-size: 20px;
     font-weight: 500;
     color: var(--text-inv) !important;
     margin-top: 2px;
-}}
+}
 
 /* ── Sidebar inputs ── */
 [data-testid="stSidebar"] [data-testid="stSelectbox"] > div > div,
-[data-testid="stSidebar"] [data-testid="stNumberInput"] input {{
+[data-testid="stSidebar"] [data-testid="stNumberInput"] input {
     background: var(--sidebar-s2) !important;
     border: 1px solid var(--sidebar-bdr) !important;
     color: var(--text-inv) !important;
     border-radius: 8px !important;
     font-family: 'Plus Jakarta Sans', sans-serif !important;
-}}
-[data-testid="stSidebar"] [data-testid="stFileUploadDropzone"] {{
+}
+[data-testid="stSidebar"] [data-testid="stFileUploadDropzone"] {
     background: var(--sidebar-s2) !important;
     border: 1px dashed var(--sidebar-bdr) !important;
     border-radius: var(--radius) !important;
-}}
-[data-testid="stSidebar"] [data-testid="stFileUploadDropzone"] * {{
+}
+[data-testid="stSidebar"] [data-testid="stFileUploadDropzone"] * {
     color: var(--muted-inv) !important;
-}}
-[data-testid="stSidebar"] [data-testid="stFileUploader"],
+}
+/* ── Fix white file uploader on mobile ── */
+[data-testid="stSidebar"] [data-testid="stFileUploader"] {
+    background: var(--sidebar-s2) !important;
+}
 [data-testid="stSidebar"] [data-testid="stFileUploader"] > div,
 [data-testid="stSidebar"] [data-testid="stFileUploader"] > div > div,
 [data-testid="stSidebar"] [data-testid="stFileUploader"] section,
 [data-testid="stSidebar"] [data-testid="stFileUploader"] section > div,
-[data-testid="stSidebar"] [data-testid="stFileUploader"] section > input + div {{
+[data-testid="stSidebar"] [data-testid="stFileUploader"] section > input + div {
     background: var(--sidebar-s2) !important;
     color: var(--muted-inv) !important;
-}}
-[data-testid="stSidebar"] [data-testid="stFileUploader"] button {{
+}
+/* Browse files button */
+[data-testid="stSidebar"] [data-testid="stFileUploader"] button {
     background: var(--sidebar-s2) !important;
     border: 1px solid var(--sidebar-bdr) !important;
     color: var(--muted-inv) !important;
     border-radius: 6px !important;
-}}
+}
 
-/* ── Sidebar buttons ── */
-[data-testid="stSidebar"] .stButton > button {{
+/* ── Sidebar button ── */
+[data-testid="stSidebar"] .stButton > button {
     background: var(--accent) !important;
     color: #fff !important;
     border: none !important;
@@ -357,46 +280,46 @@ h1, h2, h3, h4 {{
     width: 100% !important;
     transition: background .2s !important;
     box-shadow: 0 1px 3px rgba(13,148,136,0.3) !important;
-}}
-[data-testid="stSidebar"] .stButton > button:hover {{
+}
+[data-testid="stSidebar"] .stButton > button:hover {
     background: var(--accent-dk) !important;
-}}
+}
 
-/* Theme toggle & clear buttons — ghost style */
-[data-testid="stSidebar"] .stButton:nth-last-child(-n+2) > button {{
+/* Clear button — ghost style */
+[data-testid="stSidebar"] .stButton:last-child > button {
     background: transparent !important;
     color: var(--muted-inv) !important;
     border: 1px solid var(--sidebar-bdr) !important;
     box-shadow: none !important;
-}}
-[data-testid="stSidebar"] .stButton:nth-last-child(-n+2) > button:hover {{
+}
+[data-testid="stSidebar"] .stButton:last-child > button:hover {
     border-color: var(--muted-inv) !important;
     color: var(--text-inv) !important;
-}}
+}
 
 /* ── Main Header ── */
-.main-header {{
+.main-header {
     padding: 28px 0 20px;
     border-bottom: 2px solid var(--border);
     margin-bottom: 24px;
-}}
-.main-header h1 {{
+}
+.main-header h1 {
     font-size: 32px !important;
     font-weight: 800 !important;
     color: var(--text) !important;
     margin: 0 0 5px !important;
     letter-spacing: -0.03em !important;
-}}
-.main-header h1 span {{ color: var(--accent); }}
-.main-header p {{
+}
+.main-header h1 span { color: var(--accent); }
+.main-header p {
     color: var(--muted) !important;
     font-size: 14px !important;
     margin: 0 !important;
     font-weight: 400 !important;
-}}
+}
 
 /* ── Empty State ── */
-.empty-state {{
+.empty-state {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -409,174 +332,292 @@ h1, h2, h3, h4 {{
     border-radius: 16px;
     margin-top: 16px;
     box-shadow: var(--shadow);
-}}
-.empty-state .es-icon  {{ font-size: 44px; line-height: 1; filter: grayscale(0.2); }}
-.empty-state .es-title {{
-    font-size: 17px; font-weight: 700;
+}
+.empty-state .es-icon {
+    font-size: 44px;
+    line-height: 1;
+    filter: grayscale(0.2);
+}
+.empty-state .es-title {
+    font-size: 17px;
+    font-weight: 700;
     color: var(--text);
     margin-top: 4px;
-}}
-.empty-state .es-sub {{
-    font-size: 13px; color: var(--muted);
-    max-width: 320px; line-height: 1.6;
-}}
-.empty-state .es-arrow {{
-    font-size: 13px; color: var(--accent); font-weight: 600;
-    background: var(--accent-lt); padding: 6px 14px;
-    border-radius: 20px; margin-top: 6px;
-}}
+}
+.empty-state .es-sub {
+    font-size: 13px;
+    color: var(--muted);
+    max-width: 320px;
+    line-height: 1.6;
+}
+.empty-state .es-arrow {
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 600;
+    background: var(--accent-lt);
+    padding: 6px 14px;
+    border-radius: 20px;
+    margin-top: 6px;
+}
 
 /* ── Chat Messages ── */
-[data-testid="stChatMessage"] {{
+[data-testid="stChatMessage"] {
     background: var(--surface) !important;
     border: 1px solid var(--border) !important;
     border-radius: var(--radius) !important;
     padding: 14px 16px !important;
     margin-bottom: 10px !important;
     box-shadow: var(--shadow) !important;
-}}
-/* All text inside chat messages uses the MAIN text color (not sidebar inverted) */
+}
 [data-testid="stChatMessage"] p,
 [data-testid="stChatMessage"] li,
 [data-testid="stChatMessage"] span,
 [data-testid="stChatMessage"] div,
-[data-testid="stChatMessage"] code,
-[data-testid="stChatMessage"] * {{
+[data-testid="stChatMessage"] * {
     color: var(--text) !important;
-}}
+}
 
-/* ── Chat Input bottom bar ── */
+/* ── Fix: Chat message text must be dark on white surface ── */
+[data-testid="stChatMessage"] p,
+[data-testid="stChatMessage"] div,
+[data-testid="stChatMessage"] span,
+[data-testid="stChatMessage"] li,
+[data-testid="stChatMessage"] code {
+    color: var(--text) !important;
+}
+
+/* ── Chat Input — full bottom bar override ── */
+
+/* Sticky bottom wrapper Streamlit generates */
 [data-testid="stBottom"],
 [data-testid="stBottom"] > div,
 [data-testid="stBottomBlockContainer"],
 [data-testid="stBottomBlockContainer"] > div,
-[data-testid="stBottomBlockContainer"] > div > div {{
+[data-testid="stBottomBlockContainer"] > div > div {
     background: var(--bg) !important;
     border-top: none !important;
     box-shadow: none !important;
-}}
+}
 
-[data-testid="stChatInput"] {{
+/* Input widget shell */
+[data-testid="stChatInput"] {
     background: var(--surface) !important;
     border: 1.5px solid var(--border) !important;
     border-radius: 14px !important;
     box-shadow: 0 2px 16px rgba(0,0,0,0.06) !important;
     overflow: hidden !important;
     transition: border-color .15s, box-shadow .15s !important;
-}}
+}
 [data-testid="stChatInput"] > div,
-[data-testid="stChatInput"] > div > div {{
+[data-testid="stChatInput"] > div > div {
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
-}}
+}
 
-/* Textarea text color adapts to theme */
-[data-testid="stChatInput"] textarea {{
+/* ── FIX: light text so it's visible on the dark injected background ── */
+[data-testid="stChatInput"] textarea {
     background: transparent !important;
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
-    color: var(--chat-ta) !important;
+    color: #f5f5f4 !important;
     font-family: 'Plus Jakarta Sans', sans-serif !important;
     font-size: 14px !important;
     padding: 14px 16px !important;
     caret-color: var(--accent) !important;
-}}
-[data-testid="stChatInput"] textarea::placeholder {{
-    color: var(--muted) !important;
-    opacity: 0.7;
-}}
-[data-testid="stChatInput"] textarea:focus {{
+}
+[data-testid="stChatInput"] textarea::placeholder {
+    color: #b0a89f !important;
+}
+[data-testid="stChatInput"] textarea:focus {
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
-}}
-[data-testid="stChatInput"]:focus-within {{
+}
+[data-testid="stChatInput"]:focus-within {
     border-color: var(--accent) !important;
     box-shadow: 0 0 0 3px rgba(13,148,136,0.1), 0 2px 16px rgba(0,0,0,0.06) !important;
-}}
-[data-testid="stChatInput"] button {{
+}
+/* Send button */
+[data-testid="stChatInput"] button {
     background: var(--accent) !important;
     border: none !important;
     border-radius: 9px !important;
     margin: 6px !important;
     transition: background .15s !important;
-}}
-[data-testid="stChatInput"] button:hover {{ background: var(--accent-dk) !important; }}
-[data-testid="stChatInput"] button svg {{ fill: #fff !important; stroke: #fff !important; }}
+}
+[data-testid="stChatInput"] button:hover {
+    background: var(--accent-dk) !important;
+}
+[data-testid="stChatInput"] button svg {
+    fill: #fff !important;
+    stroke: #fff !important;
+}
+/* Kill ALL outlines site-wide */
+*:focus { outline: none !important; }
+textarea:focus, input:focus { box-shadow: none !important; }
 
 /* ── Sliders ── */
-[data-testid="stSidebar"] [data-testid="stSlider"] [role="slider"] {{
+[data-testid="stSidebar"] [data-testid="stSlider"] [role="slider"] {
     background: var(--accent) !important;
     border-color: var(--accent) !important;
-}}
+}
 
 /* ── Expander in sidebar ── */
-[data-testid="stSidebar"] [data-testid="stExpander"] {{
+[data-testid="stSidebar"] [data-testid="stExpander"] {
     background: var(--sidebar-s2) !important;
     border: 1px solid var(--sidebar-bdr) !important;
     border-radius: 8px !important;
-}}
-[data-testid="stSidebar"] [data-testid="stExpander"] summary {{
+}
+[data-testid="stSidebar"] [data-testid="stExpander"] summary {
     color: var(--muted-inv) !important;
     font-size: 12px !important;
-}}
+}
 
 /* ── Divider ── */
-[data-testid="stSidebar"] hr {{
+[data-testid="stSidebar"] hr {
     border-color: var(--sidebar-bdr) !important;
     margin: 12px 0 !important;
-}}
-
-/* ── Warning / error boxes in main area ── */
-[data-testid="stAlert"] {{
-    background: var(--surface) !important;
-    border-color: var(--border) !important;
-    color: var(--text) !important;
-}}
-
-/* ── Spinner text ── */
-.stSpinner > div {{ color: var(--muted) !important; }}
+}
 
 /* ── Scrollbar ── */
-::-webkit-scrollbar {{ width: 5px; height: 5px; }}
-::-webkit-scrollbar-track {{ background: transparent; }}
-::-webkit-scrollbar-thumb {{ background: var(--border); border-radius: 10px; }}
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
 
-/* ── Kill outlines ── */
-*:focus {{ outline: none !important; }}
-textarea:focus, input:focus {{ box-shadow: none !important; }}
+/* ── Hide Streamlit branding ── */
+#MainMenu, footer { visibility: hidden; }
+header { background: transparent !important; }
 
-/* ── Hide Streamlit chrome ── */
-#MainMenu, footer, header {{ visibility: hidden; }}
+/* ── Hide the stop/running square button ── */
+[data-testid="stStatusWidget"],
+[data-testid="stAppStatus"],
+[data-testid="stDecoration"],
+[data-testid="stToolbarActions"] > div:last-child,
+.stAppToolbar > div > div:last-child button:last-child {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+}
 
-/* ── Floating sidebar open button (shows when sidebar is collapsed) ── */
-#sidebar-open-btn {{
-    position: fixed;
-    top: 14px;
-    left: 14px;
-    z-index: 99999;
-    background: var(--accent);
+/* ── Hamburger / Deploy menu button (top-right) ── */
+[data-testid="stToolbarActions"] button,
+[data-testid="stDecoration"] button,
+.stAppToolbar [data-testid="stBaseButton-headerNoPadding"],
+.stAppToolbar button:not([data-testid="stSidebarCollapseButton"]) {
+    background: var(--accent) !important;
+    border: none !important;
+    border-radius: 8px !important;
     color: #fff !important;
-    border: none;
-    border-radius: 10px;
-    width: 40px;
-    height: 40px;
-    font-size: 18px;
-    cursor: pointer;
-    box-shadow: 0 2px 12px rgba(13,148,136,0.4);
-    display: none;              /* hidden by default; JS shows it */
-    align-items: center;
-    justify-content: center;
-    transition: background .2s, transform .15s;
-}}
-#sidebar-open-btn:hover {{
-    background: var(--accent-dk);
-    transform: scale(1.07);
-}}
+    opacity: 1 !important;
+}
+.stAppToolbar button:not([data-testid="stSidebarCollapseButton"]) svg,
+.stAppToolbar button:not([data-testid="stSidebarCollapseButton"]) svg * {
+    stroke: #fff !important;
+    fill: #fff !important;
+}
+
+/* ── Sidebar toggle button — target stToolbar which holds it ── */
+[data-testid="stToolbar"] {
+    background: transparent !important;
+}
+
+/* The >> button inside the toolbar (collapsed state) */
+[data-testid="stToolbar"] button,
+[data-testid="stAppToolbar"] button,
+.stAppToolbar button {
+    background: var(--accent) !important;
+    border: none !important;
+    color: #fff !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+[data-testid="stToolbar"] button svg *,
+[data-testid="stAppToolbar"] button svg *,
+.stAppToolbar button svg * {
+    stroke: #fff !important;
+    fill: #fff !important;
+}
+
+/* Collapse button inside sidebar */
+[data-testid="stSidebarCollapseButton"] button {
+    background: var(--accent) !important;
+    border: none !important;
+    border-radius: 8px !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+[data-testid="stSidebarCollapseButton"] button svg * {
+    stroke: #fff !important;
+    fill: #fff !important;
+}
 </style>
 """, unsafe_allow_html=True)
+
+# ── JS: Force sidebar toggle button visible ────────────────────────────────────
+st.components.v1.html("""
+<script>
+(function() {
+    const ACCENT = '#0d9488';
+
+    function styleBtn(btn) {
+        btn.style.setProperty('background', ACCENT, 'important');
+        btn.style.setProperty('border', 'none', 'important');
+        btn.style.setProperty('opacity', '1', 'important');
+        btn.style.setProperty('visibility', 'visible', 'important');
+        btn.style.setProperty('color', '#fff', 'important');
+        btn.querySelectorAll('svg *').forEach(el => {
+            el.style.setProperty('stroke', '#fff', 'important');
+            el.style.setProperty('fill', '#fff', 'important');
+        });
+    }
+
+    function fix() {
+        // Remove status widget from DOM entirely
+        ['[data-testid="stStatusWidget"]','[data-testid="stAppStatus"]','[data-testid="stDecoration"]'].forEach(sel => {
+            document.querySelectorAll(sel).forEach(el => el.remove());
+        });
+
+        // Sidebar toggle (left)
+        const toolbar = document.querySelector('[data-testid="stToolbar"]');
+        if (toolbar) {
+            toolbar.querySelectorAll('button').forEach(btn => {
+                styleBtn(btn);
+                btn.style.setProperty('border-radius', '8px', 'important');
+            });
+        }
+        document.querySelectorAll('.stAppToolbar button').forEach(btn => {
+            styleBtn(btn);
+            btn.style.setProperty('border-radius', '8px', 'important');
+        });
+        document.querySelectorAll('[data-testid="stSidebarCollapseButton"] button').forEach(styleBtn);
+    }
+
+    fix();
+    new MutationObserver(fix).observe(document.documentElement, { childList: true, subtree: true });
+    [300, 800, 1500, 3000].forEach(t => setTimeout(fix, t));
+})();
+</script>
+""", height=0)
+
+
+# ── Session State Init ─────────────────────────────────────────────────────────
+def init_state():
+    defaults = {
+        "messages": [],
+        "vectorstore": None,
+        "doc_ready": False,
+        "doc_name": None,
+        "chunk_count": 0,
+    }
+    for k, v in defaults.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
+
+init_state()
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -587,6 +628,7 @@ def get_embeddings():
 
 
 def process_pdf(uploaded_file, chunk_size: int, chunk_overlap: int) -> int:
+    """Load, split, embed and persist a PDF. Returns chunk count."""
     from langchain_community.document_loaders import PyPDFLoader
     from langchain_text_splitters import RecursiveCharacterTextSplitter
     from langchain_community.vectorstores import Chroma
@@ -654,7 +696,6 @@ def query_rag(question: str, k: int, fetch_k: int, lambda_mult: float, model: st
 
 # ── Sidebar ────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    # Brand
     st.markdown("""
     <div class="sidebar-brand">
       <div class="brand-icon">🧠</div>
@@ -683,25 +724,23 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True)
     else:
-        st.markdown(
-            '<div class="status-badge waiting"><span class="dot"></span> No document indexed</div>',
-            unsafe_allow_html=True,
-        )
+        st.markdown('<div class="status-badge waiting"><span class="dot"></span> No document indexed</div>',
+                    unsafe_allow_html=True)
 
     # ── PDF Upload ──
     st.markdown('<div class="section-label">📄 Document</div>', unsafe_allow_html=True)
     uploaded_pdf = st.file_uploader("Upload PDF", type="pdf", label_visibility="collapsed")
 
     with st.expander("⚙️ Chunking Options", expanded=False):
-        chunk_size    = st.number_input("Chunk Size",    min_value=200, max_value=4000, value=1000, step=100)
-        chunk_overlap = st.number_input("Chunk Overlap", min_value=0,   max_value=800,  value=200,  step=50)
+        chunk_size = st.number_input("Chunk Size", min_value=200, max_value=4000,
+                                     value=1000, step=100)
+        chunk_overlap = st.number_input("Chunk Overlap", min_value=0, max_value=800,
+                                        value=200, step=50)
 
     if uploaded_pdf:
         if st.button("⚡ Process & Index Document"):
-            st.markdown(
-                '<div class="status-badge processing"><span class="dot"></span> Indexing…</div>',
-                unsafe_allow_html=True,
-            )
+            st.markdown('<div class="status-badge processing"><span class="dot"></span> Indexing…</div>',
+                        unsafe_allow_html=True)
             with st.spinner("Splitting, embedding, and persisting…"):
                 try:
                     n = process_pdf(uploaded_pdf, chunk_size, chunk_overlap)
@@ -720,21 +759,12 @@ with st.sidebar:
 
     # ── MMR Parameters ──
     st.markdown('<div class="section-label">🎛️ MMR Retriever</div>', unsafe_allow_html=True)
-    mmr_k       = st.slider("k  (final docs returned)", 1, 10, 4)
+    mmr_k = st.slider("k  (final docs returned)", 1, 10, 4)
     mmr_fetch_k = st.slider("fetch_k  (candidates)", mmr_k, 30, max(10, mmr_k))
-    mmr_lambda  = st.slider("λ  diversity ↔ relevance", 0.0, 1.0, 0.5, 0.05,
-                             help="0 = max diversity · 1 = max relevance")
+    mmr_lambda = st.slider("λ  diversity ↔ relevance", 0.0, 1.0, 0.5, 0.05,
+                           help="0 = max diversity · 1 = max relevance")
 
     st.divider()
-
-    # ── Theme Toggle ──
-    # FIX: Use a button that stores theme in session_state and reruns,
-    # so the toggle survives sidebar collapse/expand cycles.
-    theme_label = "☀️ Switch to Light Mode" if IS_DARK else "🌙 Switch to Dark Mode"
-    if st.button(theme_label):
-        st.session_state.theme = "light" if IS_DARK else "dark"
-        st.rerun()
-
     if st.button("🗑️ Clear Chat History"):
         st.session_state.messages = []
         st.rerun()
@@ -754,8 +784,7 @@ if not st.session_state.doc_ready and not st.session_state.messages:
     <div class="empty-state">
       <span class="es-icon">📑</span>
       <div class="es-title">No document loaded yet</div>
-      <div class="es-sub">Upload a PDF from the sidebar and click
-        <strong>Process &amp; Index Document</strong> to get started.</div>
+      <div class="es-sub">Upload a PDF from the sidebar and click <strong>Process &amp; Index Document</strong> to get started.</div>
       <div class="es-arrow">← Start in the sidebar</div>
     </div>
     """, unsafe_allow_html=True)
@@ -767,14 +796,17 @@ for msg in st.session_state.messages:
 
 # Chat input
 if prompt := st.chat_input("Ask a question about your document…"):
+    # Guard: no document indexed
     if not st.session_state.doc_ready:
         with st.chat_message("assistant"):
             st.warning("⚠️ Please upload and index a PDF document first using the sidebar.")
     else:
+        # Show user message
         st.session_state.messages.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
 
+        # Stream-style response
         with st.chat_message("assistant"):
             with st.spinner("Retrieving context and generating answer…"):
                 try:
