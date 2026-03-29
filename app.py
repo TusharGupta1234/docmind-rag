@@ -399,36 +399,80 @@ h1, h2, h3, h4 {
     box-shadow: none !important;
 }
 
-/* Input widget shell */
+/* Input widget shell — force white bg, dark text always */
+[data-testid="stChatInput"],
+[data-testid="stChatInput"] > div,
+[data-testid="stChatInput"] > div > div,
+[data-testid="stChatInput"] > div > div > div {
+    background: #ffffff !important;
+    border-color: var(--border) !important;
+    box-shadow: none !important;
+}
 [data-testid="stChatInput"] {
-    background: var(--surface) !important;
     border: 1.5px solid var(--border) !important;
     border-radius: 14px !important;
     box-shadow: 0 2px 16px rgba(0,0,0,0.06) !important;
-    overflow: hidden !important;
-    transition: border-color .15s, box-shadow .15s !important;
+    overflow: visible !important;
 }
-[data-testid="stChatInput"] > div,
-[data-testid="stChatInput"] > div > div {
-    background: transparent !important;
+/* Send button — teal with visible arrow icon */
+[data-testid="stChatInput"] button,
+[data-testid="stChatInputSubmitButton"] {
+    background: var(--accent) !important;
     border: none !important;
-    box-shadow: none !important;
+    border-radius: 9px !important;
+    margin: 6px !important;
+    color: #ffffff !important;
+    transition: background .15s !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: visible !important;
+    padding: 0 !important;
+}
+[data-testid="stChatInput"] button:hover,
+[data-testid="stChatInputSubmitButton"]:hover {
+    background: var(--accent-dk) !important;
+}
+/* Force the SVG arrow icon to show white */
+[data-testid="stChatInputSubmitButton"] svg,
+[data-testid="stChatInput"] button svg {
+    overflow: visible !important;
+    display: block !important;
+    width: 18px !important;
+    height: 18px !important;
+}
+/* Hide the invisible bounding-box path Streamlit includes (M0 0h24v24H0V0z) */
+[data-testid="stChatInputSubmitButton"] svg path:first-child,
+[data-testid="stChatInput"] button svg path:first-child {
+    display: none !important;
+    fill: none !important;
+    stroke: none !important;
+}
+/* Color only the actual arrow path (second path) */
+[data-testid="stChatInputSubmitButton"] svg path:last-child,
+[data-testid="stChatInput"] button svg path:last-child {
+    fill: #ffffff !important;
+    stroke: none !important;
 }
 
-/* ── FIX: light text so it's visible on the dark injected background ── */
+/* ── Chat input textarea — use theme color so visible in both light & dark ── */
 [data-testid="stChatInput"] textarea {
-    background: transparent !important;
+    background: #ffffff !important;
     border: none !important;
     outline: none !important;
     box-shadow: none !important;
-    color: #f5f5f4 !important;
+    color: #1c1917 !important;
     font-family: 'Plus Jakarta Sans', sans-serif !important;
     font-size: 14px !important;
     padding: 14px 16px !important;
     caret-color: var(--accent) !important;
 }
 [data-testid="stChatInput"] textarea::placeholder {
-    color: #b0a89f !important;
+    color: #78716c !important;
 }
 [data-testid="stChatInput"] textarea:focus {
     border: none !important;
@@ -438,21 +482,6 @@ h1, h2, h3, h4 {
 [data-testid="stChatInput"]:focus-within {
     border-color: var(--accent) !important;
     box-shadow: 0 0 0 3px rgba(13,148,136,0.1), 0 2px 16px rgba(0,0,0,0.06) !important;
-}
-/* Send button */
-[data-testid="stChatInput"] button {
-    background: var(--accent) !important;
-    border: none !important;
-    border-radius: 9px !important;
-    margin: 6px !important;
-    transition: background .15s !important;
-}
-[data-testid="stChatInput"] button:hover {
-    background: var(--accent-dk) !important;
-}
-[data-testid="stChatInput"] button svg {
-    fill: #fff !important;
-    stroke: #fff !important;
 }
 /* Kill ALL outlines site-wide */
 *:focus { outline: none !important; }
@@ -576,28 +605,85 @@ st.components.v1.html("""
     }
 
     function fix() {
-        // Remove status widget from DOM entirely
-        ['[data-testid="stStatusWidget"]','[data-testid="stAppStatus"]','[data-testid="stDecoration"]'].forEach(sel => {
-            document.querySelectorAll(sel).forEach(el => el.remove());
+        // The JS runs in an iframe — target the parent document
+        const doc = window.parent ? window.parent.document : document;
+
+        // Remove the square status widget — try every possible selector
+        [
+            '[data-testid="stStatusWidget"]',
+            '[data-testid="stAppStatus"]',
+            '[data-testid="stDecoration"]',
+            '[data-testid="stToolbarActions"] button:last-child',
+        ].forEach(sel => {
+            doc.querySelectorAll(sel).forEach(el => {
+                el.style.setProperty('display', 'none', 'important');
+                el.style.setProperty('visibility', 'hidden', 'important');
+                el.style.setProperty('width', '0', 'important');
+                el.style.setProperty('overflow', 'hidden', 'important');
+            });
         });
 
+        // Fix chat input — white bg, dark text, teal send button
+        const chatInput = doc.querySelector('[data-testid="stChatInput"]');
+        if (chatInput) {
+            // Only fix the direct wrapper divs, not the button container
+            chatInput.style.setProperty('background', '#ffffff', 'important');
+            chatInput.style.setProperty('background-color', '#ffffff', 'important');
+            chatInput.querySelectorAll('div').forEach(d => {
+                d.style.setProperty('background', '#ffffff', 'important');
+                d.style.setProperty('background-color', '#ffffff', 'important');
+            });
+            chatInput.querySelectorAll('textarea').forEach(t => {
+                t.style.setProperty('background', '#ffffff', 'important');
+                t.style.setProperty('color', '#1c1917', 'important');
+            });
+            chatInput.querySelectorAll('button').forEach(btn => {
+                btn.style.setProperty('background', '#0d9488', 'important');
+                btn.style.setProperty('background-color', '#0d9488', 'important');
+                btn.style.setProperty('border', 'none', 'important');
+                btn.style.setProperty('color', '#ffffff', 'important');
+                // Fix parent div of button too
+                if (btn.parentElement) {
+                    btn.parentElement.style.setProperty('background', '#ffffff', 'important');
+                    btn.parentElement.style.setProperty('background-color', '#ffffff', 'important');
+                }
+                btn.querySelectorAll('svg').forEach(svg => {
+                    svg.style.setProperty('overflow', 'visible', 'important');
+                });
+                btn.querySelectorAll('path').forEach((p, i) => {
+                    const d = p.getAttribute('d') || '';
+                    // Skip the invisible bounding box path (M0 0h24v24H0V0z)
+                    if (d === 'M0 0h24v24H0V0z' || d === 'M0 0h24v24H0z') {
+                        p.style.setProperty('display', 'none', 'important');
+                        p.style.setProperty('fill', 'none', 'important');
+                        p.style.setProperty('stroke', 'none', 'important');
+                    } else {
+                        p.style.setProperty('fill', '#ffffff', 'important');
+                        p.style.setProperty('stroke', 'none', 'important');
+                        p.setAttribute('fill', '#ffffff');
+                    }
+                });
+            });
+        }
+
         // Sidebar toggle (left)
-        const toolbar = document.querySelector('[data-testid="stToolbar"]');
+        const toolbar = doc.querySelector('[data-testid="stToolbar"]');
         if (toolbar) {
             toolbar.querySelectorAll('button').forEach(btn => {
                 styleBtn(btn);
                 btn.style.setProperty('border-radius', '8px', 'important');
             });
         }
-        document.querySelectorAll('.stAppToolbar button').forEach(btn => {
+        doc.querySelectorAll('.stAppToolbar button').forEach(btn => {
             styleBtn(btn);
             btn.style.setProperty('border-radius', '8px', 'important');
         });
-        document.querySelectorAll('[data-testid="stSidebarCollapseButton"] button').forEach(styleBtn);
+        doc.querySelectorAll('[data-testid="stSidebarCollapseButton"] button').forEach(styleBtn);
     }
 
     fix();
-    new MutationObserver(fix).observe(document.documentElement, { childList: true, subtree: true });
+    const root = window.parent ? window.parent.document.documentElement : document.documentElement;
+    new MutationObserver(fix).observe(root, { childList: true, subtree: true });
     [300, 800, 1500, 3000].forEach(t => setTimeout(fix, t));
 })();
 </script>
