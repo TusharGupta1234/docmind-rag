@@ -721,8 +721,22 @@ def get_embeddings():
     return MistralAIEmbeddings()
 
 
+# Fixed collection name so we can reliably delete and recreate it on each upload
+CHROMA_COLLECTION = "docmind_active"
+
+
 def clear_vectorstore():
-    """Reset all document-related session state."""
+    """Destroy the Chroma collection and reset all document session state."""
+    import chromadb
+    # Delete the collection from the in-process Chroma client so no old
+    # embeddings survive into the next upload.
+    try:
+        client = chromadb.Client()
+        existing = [c.name for c in client.list_collections()]
+        if CHROMA_COLLECTION in existing:
+            client.delete_collection(CHROMA_COLLECTION)
+    except Exception:
+        pass  # If it doesn't exist yet, that's fine
     st.session_state.vectorstore = None
     st.session_state.doc_ready = False
     st.session_state.doc_name = None
@@ -735,8 +749,9 @@ def process_pdf(uploaded_file, chunk_size: int, chunk_overlap: int) -> int:
     from langchain_community.document_loaders import PyPDFLoader
     from langchain_text_splitters import RecursiveCharacterTextSplitter
     from langchain_community.vectorstores import Chroma
+    import chromadb
 
-    # Always wipe previous PDF before indexing a new one
+    # Wipe previous PDF data — deletes the Chroma collection entirely
     clear_vectorstore()
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
@@ -754,11 +769,16 @@ def process_pdf(uploaded_file, chunk_size: int, chunk_overlap: int) -> int:
         chunks = splitter.split_documents(docs)
 
         embeddings = get_embeddings()
-        # No persist_directory — purely in-memory.
-        # Avoids all read-only filesystem errors on Streamlit Cloud.
+
+        # Use a fixed collection name + ephemeral (in-memory) client.
+        # This guarantees we always write into a fresh, empty collection
+        # with no leftover data from any previous PDF.
+        client = chromadb.EphemeralClient()
         vectorstore = Chroma.from_documents(
             documents=chunks,
             embedding=embeddings,
+            client=client,
+            collection_name=CHROMA_COLLECTION,
         )
 
         st.session_state.vectorstore = vectorstore
