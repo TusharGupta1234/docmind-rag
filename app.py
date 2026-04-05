@@ -721,7 +721,8 @@ def get_embeddings():
     return MistralAIEmbeddings()
 
 
-CHROMA_DIR = "chroma_db"
+# Use /tmp so this works on Streamlit Cloud (app dir is read-only there)
+CHROMA_DIR = "/tmp/chroma_db"
 
 
 def clear_vectorstore():
