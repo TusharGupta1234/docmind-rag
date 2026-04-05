@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
 import tempfile
 from dotenv import load_dotenv
 
