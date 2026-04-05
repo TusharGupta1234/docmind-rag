@@ -721,11 +721,31 @@ def get_embeddings():
     return MistralAIEmbeddings()
 
 
+CHROMA_DIR = "chroma_db"
+
+
+def clear_vectorstore():
+    """Delete the persisted Chroma DB and reset all document session state."""
+    import shutil
+    # Delete old Chroma data from disk so previous PDF embeddings are gone
+    if os.path.exists(CHROMA_DIR):
+        shutil.rmtree(CHROMA_DIR)
+    # Reset in-memory vectorstore and all related state
+    st.session_state.vectorstore = None
+    st.session_state.doc_ready = False
+    st.session_state.doc_name = None
+    st.session_state.chunk_count = 0
+    st.session_state.messages = []
+
+
 def process_pdf(uploaded_file, chunk_size: int, chunk_overlap: int) -> int:
     """Load, split, embed and persist a PDF. Returns chunk count."""
     from langchain_community.document_loaders import PyPDFLoader
     from langchain_text_splitters import RecursiveCharacterTextSplitter
     from langchain_community.vectorstores import Chroma
+
+    # ── Always wipe any previous PDF data before indexing a new one ──
+    clear_vectorstore()
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
         tmp.write(uploaded_file.read())
@@ -745,7 +765,7 @@ def process_pdf(uploaded_file, chunk_size: int, chunk_overlap: int) -> int:
         vectorstore = Chroma.from_documents(
             documents=chunks,
             embedding=embeddings,
-            persist_directory="chroma_db",
+            persist_directory=CHROMA_DIR,
         )
 
         st.session_state.vectorstore = vectorstore
@@ -859,9 +879,15 @@ with st.sidebar:
                            help="0 = max diversity · 1 = max relevance")
 
     st.divider()
-    if st.button("🗑️ Clear Chat History"):
-        st.session_state.messages = []
-        st.rerun()
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("🗑️ Clear Chat", use_container_width=True):
+            st.session_state.messages = []
+            st.rerun()
+    with col2:
+        if st.button("❌ Remove PDF", use_container_width=True, disabled=not st.session_state.doc_ready):
+            clear_vectorstore()
+            st.rerun()
 
 
 # ── Main Area ──────────────────────────────────────────────────────────────────
