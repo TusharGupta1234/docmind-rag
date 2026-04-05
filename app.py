@@ -721,17 +721,8 @@ def get_embeddings():
     return MistralAIEmbeddings()
 
 
-# Use /tmp so this works on Streamlit Cloud (app dir is read-only there)
-CHROMA_DIR = "/tmp/chroma_db"
-
-
 def clear_vectorstore():
-    """Delete the persisted Chroma DB and reset all document session state."""
-    import shutil
-    # Delete old Chroma data from disk so previous PDF embeddings are gone
-    if os.path.exists(CHROMA_DIR):
-        shutil.rmtree(CHROMA_DIR)
-    # Reset in-memory vectorstore and all related state
+    """Reset all document-related session state."""
     st.session_state.vectorstore = None
     st.session_state.doc_ready = False
     st.session_state.doc_name = None
@@ -740,12 +731,12 @@ def clear_vectorstore():
 
 
 def process_pdf(uploaded_file, chunk_size: int, chunk_overlap: int) -> int:
-    """Load, split, embed and persist a PDF. Returns chunk count."""
+    """Load, split, embed and store a PDF in memory. Returns chunk count."""
     from langchain_community.document_loaders import PyPDFLoader
     from langchain_text_splitters import RecursiveCharacterTextSplitter
     from langchain_community.vectorstores import Chroma
 
-    # ── Always wipe any previous PDF data before indexing a new one ──
+    # Always wipe previous PDF before indexing a new one
     clear_vectorstore()
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
@@ -763,10 +754,11 @@ def process_pdf(uploaded_file, chunk_size: int, chunk_overlap: int) -> int:
         chunks = splitter.split_documents(docs)
 
         embeddings = get_embeddings()
+        # No persist_directory — purely in-memory.
+        # Avoids all read-only filesystem errors on Streamlit Cloud.
         vectorstore = Chroma.from_documents(
             documents=chunks,
             embedding=embeddings,
-            persist_directory=CHROMA_DIR,
         )
 
         st.session_state.vectorstore = vectorstore
@@ -886,7 +878,8 @@ with st.sidebar:
             st.session_state.messages = []
             st.rerun()
     with col2:
-        if st.button("❌ Remove PDF", use_container_width=True, disabled=not st.session_state.doc_ready):
+        if st.button("❌ Remove PDF", use_container_width=True,
+                     disabled=not st.session_state.doc_ready):
             clear_vectorstore()
             st.rerun()
 
